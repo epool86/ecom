@@ -41,8 +41,7 @@ class CartController extends Controller
                 'name' => $product->name,
                 'price' => $product->price,
                 'quantity' => $quantity,
-                'photo' => $product->photo,
-                'description' => $product->description
+                'image' => $product->photo
             ];
         }
         
@@ -50,37 +49,25 @@ class CartController extends Controller
         return redirect()->back()->with('success', 'Product added to cart!');
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, Product $product)
     {
         $cart = session()->get('cart', []);
-        $action = $request->input('action', 'update');
+        $quantity = $request->input('quantity');
         
-        if(isset($cart[$id])) {
-            if($action === 'increase') {
-                $cart[$id]['quantity']++;
-            } elseif($action === 'decrease') {
-                if($cart[$id]['quantity'] > 1) {
-                    $cart[$id]['quantity']--;
-                } else {
-                    unset($cart[$id]);
-                }
-            } else {
-                $quantity = max(1, intval($request->input('quantity', 1)));
-                $cart[$id]['quantity'] = $quantity;
-            }
-            
+        if(isset($cart[$product->id])) {
+            $cart[$product->id]['quantity'] = $quantity;
             session()->put('cart', $cart);
         }
         
         return redirect()->back();
     }
 
-    public function remove($id)
+    public function remove(Product $product)
     {
         $cart = session()->get('cart', []);
         
-        if(isset($cart[$id])) {
-            unset($cart[$id]);
+        if(isset($cart[$product->id])) {
+            unset($cart[$product->id]);
             session()->put('cart', $cart);
         }
         
@@ -117,10 +104,10 @@ class CartController extends Controller
         }
 
         $order = Order::create([
-            'customer_name' => $request->first_name . ' ' . $request->last_name,
+            'customer_name' => $request->name,
             'customer_email' => $request->email,
             'customer_phone' => $request->phone,
-            'shipping_address' => $request->address . ', ' . $request->city . ', ' . $request->state . ', ' . $request->postcode . ', ' . $request->country,
+            'shipping_address' => $request->address,
             'total_amount' => $total,
             'status' => 'pending',
             'payment_status' => 'pending',
@@ -142,7 +129,7 @@ class CartController extends Controller
         session()->forget('cart');
 
         // If payment method is gateway, redirect to Billplz
-        if ($request->payment_method === 'paypal') {
+        if ($request->payment_method === 'gateway') {
             $billplzResponse = $this->billplzService->createBill($order);
             
             if ($billplzResponse && isset($billplzResponse['url'])) {
